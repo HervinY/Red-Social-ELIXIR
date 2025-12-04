@@ -1,6 +1,6 @@
 # Red Social Elixir
 
-Proyecto final académico para demostrar el dominio de Elixir, Phoenix y Ecto.
+Proyecto final académico para demostrar el dominio de un nuevo lenguaje de programación, funcional y concurrente: Elixir con sus frameworks: Phoenix y Ecto.
 Implementa una red social completa con lógica de visibilidad compleja (Grado 2), analíticas avanzadas y relaciones entre Personas y Empresas.
 
 ## Prerrequisitos
