@@ -384,6 +384,48 @@ defmodule RedSocial.SocialCore do
   end
 
   @doc """
+  Gets all posts with a specific hashtag.
+  """
+  def get_posts_by_hashtag(hashtag_name) do
+    hashtag = Repo.get_by(Hashtag, name: String.downcase(hashtag_name))
+
+    if hashtag do
+      from(p in Post,
+        join: ph in PostHashtag,
+        on: ph.post_id == p.id,
+        where: ph.hashtag_id == ^hashtag.id,
+        preload: [:author, :interactions, :hashtags],
+        order_by: [desc: p.inserted_at]
+      )
+      |> Repo.all()
+    else
+      []
+    end
+  end
+
+  @doc """
+  Gets all users who have posted with a specific hashtag.
+  """
+  def get_users_by_hashtag(hashtag_name) do
+    hashtag = Repo.get_by(Hashtag, name: String.downcase(hashtag_name))
+
+    if hashtag do
+      from(u in User,
+        join: p in Post,
+        on: p.author_id == u.id,
+        join: ph in PostHashtag,
+        on: ph.post_id == p.id,
+        where: ph.hashtag_id == ^hashtag.id,
+        distinct: true,
+        select: u
+      )
+      |> Repo.all()
+    else
+      []
+    end
+  end
+
+  @doc """
   Calculates the influence network for a user up to N degrees.
   Returns a map with each degree and the users at that level.
   """

@@ -218,6 +218,12 @@ RedSocial.SocialCore.get_influence_network(user1, depth: 3)
 
 # Red de influencia hasta grado 5
 RedSocial.SocialCore.get_influence_network(company, depth: 5)
+
+# Ver posts por hashtag
+RedSocial.SocialCore.get_posts_by_hashtag("elixir")
+
+# Ver usuarios que han usado un hashtag
+RedSocial.SocialCore.get_users_by_hashtag("elixir")
 ```
 
 ## Estructura del Proyecto
@@ -333,11 +339,10 @@ posts
 |> Enum.take(5)
 ```
 
-## Autores:
+## Autores
 
-**Hervin Rodriguez**
+**Hervin Rodríguez**
 - GitHub: [@HervinY](https://github.com/HervinY)
-- Proyecto Académico - Curso de Estructuras de Lenguajes
 
 **Samuel Castro**
 
