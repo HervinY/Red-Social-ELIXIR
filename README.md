@@ -333,11 +333,13 @@ posts
 |> Enum.take(5)
 ```
 
-## Autor
+## Autores:
 
-**Hervin Yesid Rodriguez**
+**Hervin Rodriguez**
 - GitHub: [@HervinY](https://github.com/HervinY)
-- Proyecto Académico - Curso de Elixir y Desarrollo Web
+- Proyecto Académico - Curso de Estructuras de Lenguajes
+
+**Samuel Castro**
 
 ## Licencia
 
