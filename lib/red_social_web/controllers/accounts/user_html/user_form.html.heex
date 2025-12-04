@@ -1,0 +1,11 @@
+<.form :let={f} for={@changeset} action={@action}>
+  <.input field={f[:username]} type="text" label="Username" />
+  <.input field={f[:email]} type="text" label="Email" />
+  <.input field={f[:name]} type="text" label="Name" />
+  <.input field={f[:type]} type="text" label="Type" />
+  <.input field={f[:bio]} type="textarea" label="Bio" />
+  <footer>
+    <.button variant="primary">Save User</.button>
+    <.button :if={@return_to} href={@return_to}>Cancel</.button>
+  </footer>
+</.form>
