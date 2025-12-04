@@ -160,7 +160,7 @@ defmodule RedSocialWeb.DashboardLive do
                         <div class="flex justify-between items-start mb-3">
                           <div>
                             <span class="font-bold text-gray-900 text-lg"><%= post.author.username %></span>
-                            <span class="ml-2 text-xs px-2 py-1 rounded-full <%= if post.author.type == "company", do: "bg-purple-100 text-purple-700", else: "bg-green-100 text-green-700" %>">
+                            <span class={"ml-2 text-xs px-2 py-1 rounded-full #{if post.author.type == "company", do: "bg-purple-100 text-purple-700", else: "bg-green-100 text-green-700"}"}>
                               <%= post.author.type %>
                             </span>
                           </div>
