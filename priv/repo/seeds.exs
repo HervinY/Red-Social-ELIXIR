@@ -62,49 +62,79 @@ SocialCore.block(Enum.at(user_structs, 0), Enum.at(user_structs, 5))
 # Recommendations
 # TechCorp recommends Foodies
 SocialCore.recommend(Enum.at(company_structs, 0), Enum.at(company_structs, 1))
+# Foodies recommends TravelInc
+SocialCore.recommend(Enum.at(company_structs, 1), Enum.at(company_structs, 2))
 
-# 4. Create Hashtags
-hashtags = ["elixir", "phoenix", "tech", "food", "travel", "coding"]
-hashtag_structs = Enum.map(hashtags, fn name ->
-  {:ok, tag} = Repo.insert(%Hashtag{name: name}, on_conflict: :nothing)
-  tag
-end)
+# Employment relationships (person works at company)
+SocialCore.employ(Enum.at(company_structs, 0), Enum.at(user_structs, 0))
+SocialCore.employ(Enum.at(company_structs, 0), Enum.at(user_structs, 1))
+SocialCore.employ(Enum.at(company_structs, 1), Enum.at(user_structs, 2))
 
-# 5. Create Posts
-create_post_with_hashtags = fn user, content, tags ->
-  {:ok, post} = SocialCore.create_post(user, %{content: content})
-  # Add hashtags manually since SocialCore.create_post might not handle them yet in the simple version
-  # We'll just insert PostHashtag directly for seeds
-  Enum.each(tags, fn tag_name ->
-    tag = Repo.get_by(Hashtag, name: tag_name)
-    Repo.insert(%PostHashtag{post_id: post.id, hashtag_id: tag.id})
-  end)
-  post
-end
+# Customer relationships (person is customer of company)
+SocialCore.add_customer(Enum.at(company_structs, 0), Enum.at(user_structs, 3))
+SocialCore.add_customer(Enum.at(company_structs, 0), Enum.at(user_structs, 4))
+SocialCore.add_customer(Enum.at(company_structs, 1), Enum.at(user_structs, 5))
+SocialCore.add_customer(Enum.at(company_structs, 1), Enum.at(user_structs, 6))
+SocialCore.add_customer(Enum.at(company_structs, 2), Enum.at(user_structs, 7))
 
+# Create mutual friendships (User 1 and User 2 are friends)
+SocialCore.follow(Enum.at(user_structs, 1), Enum.at(user_structs, 0))  # User 2 follows back User 1
+
+# 4. Create Posts with automatic hashtag extraction
 # User 2 posts (Visible to User 1)
-create_post_with_hashtags.(Enum.at(user_structs, 1), "Hello world from User 2!", ["elixir"])
-create_post_with_hashtags.(Enum.at(user_structs, 1), "Learning Phoenix is fun.", ["phoenix", "coding"])
+{:ok, _} = SocialCore.create_post(Enum.at(user_structs, 1), %{content: "Hello world from User 2! #elixir #programming"})
+{:ok, _} = SocialCore.create_post(Enum.at(user_structs, 1), %{content: "Learning Phoenix is fun. #phoenix #coding #elixir"})
 
-# User 5 posts (Visible to User 1 via User 2)
-create_post_with_hashtags.(Enum.at(user_structs, 4), "I am User 5, friend of User 2.", ["tech"])
+# User 5 posts (Visible to User 1 via User 2 - Degree 2)
+{:ok, _} = SocialCore.create_post(Enum.at(user_structs, 4), %{content: "I am User 5, friend of User 2. #tech #networking"})
 
 # User 6 posts (Blocked by User 1, should NOT be visible)
-create_post_with_hashtags.(Enum.at(user_structs, 5), "I am User 6, you shouldn't see this User 1!", ["spam"])
+{:ok, _} = SocialCore.create_post(Enum.at(user_structs, 5), %{content: "I am User 6, you shouldn't see this User 1! #spam"})
+
+# User 3 posts
+{:ok, _} = SocialCore.create_post(Enum.at(user_structs, 2), %{content: "Working on exciting stuff! #tech #innovation"})
+
+# User 4 posts
+{:ok, _} = SocialCore.create_post(Enum.at(user_structs, 3), %{content: "Love functional programming! #elixir #fp"})
 
 # TechCorp posts
-create_post_with_hashtags.(Enum.at(company_structs, 0), "New product launch!", ["tech", "innovation"])
+{:ok, tech_post} = SocialCore.create_post(Enum.at(company_structs, 0), %{content: "New product launch! #tech #innovation #startup"})
+{:ok, _} = SocialCore.create_post(Enum.at(company_structs, 0), %{content: "We're hiring Elixir developers! #elixir #jobs #tech"})
 
-# 6. Interactions
-# User 1 likes TechCorp's post
-tech_post = Repo.one(from p in Post, where: p.author_id == ^Enum.at(company_structs, 0).id, limit: 1)
+# Foodies posts
+{:ok, food_post} = SocialCore.create_post(Enum.at(company_structs, 1), %{content: "Yummy burger special today! #food #burgers #delicious"})
+{:ok, food_post2} = SocialCore.create_post(Enum.at(company_structs, 1), %{content: "New vegan menu! #food #vegan #healthy"})
+
+# TravelInc posts
+{:ok, travel_post} = SocialCore.create_post(Enum.at(company_structs, 2), %{content: "Amazing destinations await! #travel #adventure #vacation"})
+
+# 5. Interactions - Create diverse engagement
+# Multiple users like TechCorp posts
 SocialCore.like(Enum.at(user_structs, 0), tech_post)
-
-# User 2 likes TechCorp's post
 SocialCore.like(Enum.at(user_structs, 1), tech_post)
+SocialCore.like(Enum.at(user_structs, 2), tech_post)
+SocialCore.like(Enum.at(user_structs, 3), tech_post)
 
-# User 3 likes Foodies (we need a post for Foodies)
-food_post = create_post_with_hashtags.(Enum.at(company_structs, 1), "Yummy burger!", ["food"])
+# Users like Foodies posts
 SocialCore.like(Enum.at(user_structs, 2), food_post)
+SocialCore.like(Enum.at(user_structs, 4), food_post)
+SocialCore.like(Enum.at(user_structs, 5), food_post)
+SocialCore.like(Enum.at(user_structs, 6), food_post2)
+SocialCore.like(Enum.at(user_structs, 7), food_post2)
+
+# Some dislikes for variety
+SocialCore.dislike(Enum.at(user_structs, 8), food_post2)
+
+# Users like TravelInc posts
+SocialCore.like(Enum.at(user_structs, 7), travel_post)
+SocialCore.like(Enum.at(user_structs, 8), travel_post)
+
+# Reposts
+SocialCore.repost(Enum.at(user_structs, 0), tech_post)
+SocialCore.repost(Enum.at(user_structs, 1), food_post)
 
 IO.puts "Seeds executed successfully!"
+IO.puts "- Created 10 users and 3 companies"
+IO.puts "- Established follow, block, employment, and customer relationships"
+IO.puts "- Generated posts with automatic hashtag extraction"
+IO.puts "- Added diverse interactions (likes, dislikes, reposts)"
