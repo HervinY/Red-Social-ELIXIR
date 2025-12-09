@@ -3,7 +3,6 @@ defmodule RedSocial.Content.PostHashtag do
   import Ecto.Changeset
 
   schema "post_hashtags" do
-
     field :post_id, :id
     field :hashtag_id, :id
 

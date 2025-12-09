@@ -174,8 +174,69 @@ defmodule RedSocial.SocialCore do
     create_interaction(user, post, "dislike")
   end
 
-  def repost(%User{} = user, %Post{} = post) do
-    create_interaction(user, post, "repost")
+  @doc """
+  Creates a repost. Rules:
+  - A person can only repost a post from someone they follow.
+  - A company can repost its own posts or posts from companies it follows.
+  """
+  def repost(%User{type: "person"} = person, %Post{} = post) do
+    # Check if person follows the post author
+    follows_query =
+      from r in Relationship,
+        where: r.source_id == ^person.id and r.target_id == ^post.author_id and r.type == "follow"
+
+    if Repo.exists?(follows_query) do
+      # Create new post with reference to original
+      %Post{}
+      |> Post.changeset(%{
+        content: post.content,
+        original_post_id: post.id
+      })
+      |> Ecto.Changeset.put_assoc(:author, person)
+      |> Repo.insert()
+      |> case do
+        {:ok, repost} ->
+          # Also create an interaction for tracking
+          create_interaction(person, post, "repost")
+          {:ok, Repo.preload(repost, [:author, :original_post, :hashtags])}
+
+        error ->
+          error
+      end
+    else
+      {:error, "You can only repost posts from people you follow"}
+    end
+  end
+
+  def repost(%User{type: "company"} = company, %Post{} = post) do
+    # Company can repost its own posts or posts from companies it follows
+    can_repost =
+      post.author_id == company.id or
+        Repo.exists?(
+          from r in Relationship,
+            where:
+              r.source_id == ^company.id and r.target_id == ^post.author_id and r.type == "follow"
+        )
+
+    if can_repost do
+      %Post{}
+      |> Post.changeset(%{
+        content: post.content,
+        original_post_id: post.id
+      })
+      |> Ecto.Changeset.put_assoc(:author, company)
+      |> Repo.insert()
+      |> case do
+        {:ok, repost} ->
+          create_interaction(company, post, "repost")
+          {:ok, Repo.preload(repost, [:author, :original_post, :hashtags])}
+
+        error ->
+          error
+      end
+    else
+      {:error, "Company can only repost its own posts or posts from companies it follows"}
+    end
   end
 
   defp create_interaction(user, post, type) do
@@ -189,11 +250,11 @@ defmodule RedSocial.SocialCore do
   # --- Visibility Engine (The Core Logic) ---
 
   @doc """
-  Gets the feed for a user based on the "Degree 2" logic.
-  Visible:
-  1. Posts from people I follow (Degree 1).
-  2. Posts from people followed by people I follow (Degree 2).
-  3. Exclude posts from people I have blocked or who have blocked me.
+  Gets the feed for a user based on visibility rules:
+  1. Posts from companies (visible to ALL members of the network).
+  2. Posts from people I follow (Degree 1).
+  3. Posts from people followed by people I follow (Degree 2).
+  4. Exclude posts from people I have blocked or who have blocked me.
   """
   def get_feed_for(%User{} = user) do
     # 1. Get IDs of people I follow (Degree 1)
@@ -223,19 +284,25 @@ defmodule RedSocial.SocialCore do
             r.source_id
           )
 
-    # Combine IDs: Degree 1 + Degree 2 + Self (optional, usually good to see own posts)
+    # 4. Get company IDs (their posts are visible to everyone)
+    company_ids_query =
+      from u in User,
+        where: u.type == "company",
+        select: u.id
+
+    # Combine visibility: Companies (all) + Degree 1 + Degree 2 + Self
     # And filter out blocked
-    
-    # Note: SQLite doesn't support UNION ALL in subqueries easily in older Ecto versions, 
-    # but let's try a composable approach.
-    
-    # Actually, let's just get the posts where author_id is in the set.
-    
     Post
-    |> where([p], p.author_id in subquery(degree_1_query) or p.author_id in subquery(degree_2_query) or p.author_id == ^user.id)
+    |> where(
+      [p],
+      p.author_id in subquery(company_ids_query) or
+        p.author_id in subquery(degree_1_query) or
+        p.author_id in subquery(degree_2_query) or
+        p.author_id == ^user.id
+    )
     |> where([p], p.author_id not in subquery(blocked_ids_query))
     |> order_by([p], desc: p.inserted_at)
-    |> preload([:author, :hashtags, :interactions])
+    |> preload([:author, :hashtags, :interactions, :original_post])
     |> Repo.all()
   end
 
@@ -258,7 +325,8 @@ defmodule RedSocial.SocialCore do
 
   def get_trending_hashtags do
     from(h in Hashtag,
-      join: ph in PostHashtag, on: ph.hashtag_id == h.id,
+      join: ph in PostHashtag,
+      on: ph.hashtag_id == h.id,
       group_by: h.id,
       select: {h, count(ph.post_id)},
       order_by: [desc: count(ph.post_id)],
@@ -324,7 +392,8 @@ defmodule RedSocial.SocialCore do
 
       score = likes - dislikes + recommendations * 2
 
-      {company, %{likes: likes, dislikes: dislikes, recommendations: recommendations, score: score}}
+      {company,
+       %{likes: likes, dislikes: dislikes, recommendations: recommendations, score: score}}
     end)
     |> Enum.sort_by(fn {_company, stats} -> stats.score end, :desc)
   end
@@ -355,8 +424,11 @@ defmodule RedSocial.SocialCore do
           {post, engagement}
         end)
 
-      top_posts = Enum.sort_by(posts_with_engagement, fn {_post, eng} -> eng end, :desc) |> Enum.take(5)
-      bottom_posts = Enum.sort_by(posts_with_engagement, fn {_post, eng} -> eng end, :asc) |> Enum.take(5)
+      top_posts =
+        Enum.sort_by(posts_with_engagement, fn {_post, eng} -> eng end, :desc) |> Enum.take(5)
+
+      bottom_posts =
+        Enum.sort_by(posts_with_engagement, fn {_post, eng} -> eng end, :asc) |> Enum.take(5)
 
       %{
         hashtag: hashtag,
@@ -430,7 +502,13 @@ defmodule RedSocial.SocialCore do
   Returns a map with each degree and the users at that level.
   """
   def get_influence_network(%User{} = user, depth: max_depth) do
-    get_influence_network_recursive(user.id, max_depth, 1, %{0 => [user.id]}, MapSet.new([user.id]))
+    get_influence_network_recursive(
+      user.id,
+      max_depth,
+      1,
+      %{0 => [user.id]},
+      MapSet.new([user.id])
+    )
   end
 
   defp get_influence_network_recursive(_user_id, max_depth, current_depth, network, _visited)
@@ -477,6 +555,180 @@ defmodule RedSocial.SocialCore do
         new_network,
         new_visited
       )
+    end
+  end
+
+  # --- Additional Functions for Complete Requirement Coverage ---
+
+  @doc """
+  Counts the number of followers for a user or company.
+  """
+  def count_followers(%User{} = user) do
+    from(r in Relationship,
+      where: r.target_id == ^user.id and r.type == "follow",
+      select: count(r.id)
+    )
+    |> Repo.one() || 0
+  end
+
+  @doc """
+  Gets all followers of a user or company.
+  """
+  def get_followers(%User{} = user) do
+    from(u in User,
+      join: r in Relationship,
+      on: r.source_id == u.id,
+      where: r.target_id == ^user.id and r.type == "follow"
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Counts the number of likes for a specific post.
+  """
+  def count_likes(%Post{} = post) do
+    from(i in Interaction,
+      where: i.post_id == ^post.id and i.type == "like",
+      select: count(i.id)
+    )
+    |> Repo.one() || 0
+  end
+
+  @doc """
+  Counts the number of dislikes for a specific post.
+  """
+  def count_dislikes(%Post{} = post) do
+    from(i in Interaction,
+      where: i.post_id == ^post.id and i.type == "dislike",
+      select: count(i.id)
+    )
+    |> Repo.one() || 0
+  end
+
+  @doc """
+  Gets engagement stats (likes and dislikes) for a specific post.
+  """
+  def get_post_engagement(%Post{} = post) do
+    %{
+      likes: count_likes(post),
+      dislikes: count_dislikes(post)
+    }
+  end
+
+  @doc """
+  Gets all followers that have been blocked by a user.
+  """
+  def get_blocked_followers(%User{} = user) do
+    # Get users who follow me AND whom I have blocked
+    follower_ids =
+      from(r in Relationship,
+        where: r.target_id == ^user.id and r.type == "follow",
+        select: r.source_id
+      )
+      |> Repo.all()
+
+    from(u in User,
+      join: r in Relationship,
+      on: r.target_id == u.id,
+      where: r.source_id == ^user.id and r.type == "block" and u.id in ^follower_ids
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets all users or companies that a user has blocked.
+  """
+  def get_blocked_users(%User{} = user) do
+    from(u in User,
+      join: r in Relationship,
+      on: r.target_id == u.id,
+      where: r.source_id == ^user.id and r.type == "block"
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets companies ranked by number of dislikes (most disliked first).
+  """
+  def get_companies_by_dislikes do
+    from(u in User,
+      join: p in assoc(u, :posts),
+      join: i in assoc(p, :interactions),
+      where: u.type == "company" and i.type == "dislike",
+      group_by: u.id,
+      select: {u, count(i.id)},
+      order_by: [desc: count(i.id)],
+      limit: 10
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets recommendations received by a company with details of who recommended.
+  """
+  def get_recommendations_for_company(%User{type: "company"} = company) do
+    from(r in Relationship,
+      where: r.target_id == ^company.id and r.type == "recommend",
+      preload: [:source]
+    )
+    |> Repo.all()
+    |> Enum.map(fn relationship ->
+      %{
+        recommended_by: relationship.source,
+        recommended_at: relationship.inserted_at
+      }
+    end)
+  end
+
+  @doc """
+  Checks if a user can see a specific post based on visibility rules.
+  """
+  def can_see_post?(%User{} = viewer, %Post{} = post) do
+    post = Repo.preload(post, :author)
+
+    # Check if viewer is blocked
+    is_blocked =
+      Repo.exists?(
+        from r in Relationship,
+          where:
+            (r.source_id == ^viewer.id and r.target_id == ^post.author_id and r.type == "block") or
+              (r.source_id == ^post.author_id and r.target_id == ^viewer.id and r.type == "block")
+      )
+
+    if is_blocked do
+      false
+    else
+      cond do
+        # Company posts are visible to everyone
+        post.author.type == "company" ->
+          true
+
+        # Own posts are visible
+        post.author_id == viewer.id ->
+          true
+
+        # Check if viewer follows author (degree 1)
+        Repo.exists?(
+          from r in Relationship,
+            where:
+              r.source_id == ^viewer.id and r.target_id == ^post.author_id and r.type == "follow"
+        ) ->
+          true
+
+        # Check if viewer follows someone who follows author (degree 2)
+        true ->
+          viewer_follows =
+            from r in Relationship,
+              where: r.source_id == ^viewer.id and r.type == "follow",
+              select: r.target_id
+
+          Repo.exists?(
+            from r in Relationship,
+              where:
+                r.source_id in subquery(viewer_follows) and r.target_id == ^post.author_id and
+                  r.type == "follow"
+          )
+      end
     end
   end
 end

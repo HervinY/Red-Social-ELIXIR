@@ -2,28 +2,28 @@
   <.header>
     Listing Users
     <:actions>
-      <.button href={~p"/users/new"}>
-        <.icon name="hero-plus" /> New User
-      </.button>
+      <.button href={~p"/users/new"}><.icon name="hero-plus" /> New User</.button>
     </:actions>
   </.header>
-
+  
   <.table id="users" rows={@users} row_click={&JS.navigate(~p"/users/#{&1}")}>
     <:col :let={user} label="Username">{user.username}</:col>
+    
     <:col :let={user} label="Email">{user.email}</:col>
+    
     <:col :let={user} label="Name">{user.name}</:col>
+    
     <:col :let={user} label="Type">{user.type}</:col>
+    
     <:col :let={user} label="Bio">{user.bio}</:col>
+    
     <:action :let={user}>
-      <div class="sr-only">
-        <.link navigate={~p"/users/#{user}"}>Show</.link>
-      </div>
-      <.link navigate={~p"/users/#{user}/edit"}>Edit</.link>
+      <div class="sr-only"><.link navigate={~p"/users/#{user}"}>Show</.link></div>
+       <.link navigate={~p"/users/#{user}/edit"}>Edit</.link>
     </:action>
+    
     <:action :let={user}>
-      <.link href={~p"/users/#{user}"} method="delete" data-confirm="Are you sure?">
-        Delete
-      </.link>
+      <.link href={~p"/users/#{user}"} method="delete" data-confirm="Are you sure?">Delete</.link>
     </:action>
   </.table>
 </Layouts.app>

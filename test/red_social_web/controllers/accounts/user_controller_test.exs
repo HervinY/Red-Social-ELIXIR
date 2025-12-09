@@ -3,8 +3,20 @@ defmodule RedSocialWeb.Accounts.UserControllerTest do
 
   import RedSocial.AccountsFixtures
 
-  @create_attrs %{name: "some name", type: "some type", username: "some username", email: "some email", bio: "some bio"}
-  @update_attrs %{name: "some updated name", type: "some updated type", username: "some updated username", email: "some updated email", bio: "some updated bio"}
+  @create_attrs %{
+    name: "some name",
+    type: "some type",
+    username: "some username",
+    email: "some email",
+    bio: "some bio"
+  }
+  @update_attrs %{
+    name: "some updated name",
+    type: "some updated type",
+    username: "some updated username",
+    email: "some updated email",
+    bio: "some updated bio"
+  }
   @invalid_attrs %{name: nil, type: nil, username: nil, email: nil, bio: nil}
 
   describe "index" do
