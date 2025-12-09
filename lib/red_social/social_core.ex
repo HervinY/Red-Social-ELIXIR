@@ -42,6 +42,28 @@ defmodule RedSocial.SocialCore do
     |> Repo.insert()
   end
 
+  def unfollow(%User{} = follower, %User{} = target) do
+    from(r in Relationship,
+      where: r.source_id == ^follower.id and r.target_id == ^target.id and r.type == "follow"
+    )
+    |> Repo.delete_all()
+    |> case do
+      {1, _} -> {:ok, :deleted}
+      {0, _} -> {:error, :not_found}
+    end
+  end
+
+  def unblock(%User{} = blocker, %User{} = target) do
+    from(r in Relationship,
+      where: r.source_id == ^blocker.id and r.target_id == ^target.id and r.type == "block"
+    )
+    |> Repo.delete_all()
+    |> case do
+      {1, _} -> {:ok, :deleted}
+      {0, _} -> {:error, :not_found}
+    end
+  end
+
   def recommend(%User{} = source, %User{} = target) do
     %Relationship{}
     |> Relationship.changeset(%{type: "recommend"})
