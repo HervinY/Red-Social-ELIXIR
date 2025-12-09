@@ -15,5 +15,9 @@ defmodule RedSocial.Content.Interaction do
     interaction
     |> cast(attrs, [:type])
     |> validate_required([:type])
+    |> validate_inclusion(:type, ["like", "dislike", "repost"])
+    |> unique_constraint([:user_id, :post_id, :type], 
+         name: :interactions_user_post_type_index,
+         message: "You have already performed this action on this post")
   end
 end

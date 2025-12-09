@@ -166,12 +166,50 @@ defmodule RedSocial.SocialCore do
 
   # --- Interactions ---
 
+  @doc """
+  Adds a like to a post. A user can only like a post once.
+  Returns {:ok, interaction} if successful, or {:error, reason} if already liked.
+  """
   def like(%User{} = user, %Post{} = post) do
-    create_interaction(user, post, "like")
+    case get_interaction(user, post, "like") do
+      nil -> create_interaction(user, post, "like")
+      existing -> {:ok, existing}
+    end
   end
 
+  @doc """
+  Adds a dislike to a post. A user can only dislike a post once.
+  Returns {:ok, interaction} if successful, or {:error, reason} if already disliked.
+  """
   def dislike(%User{} = user, %Post{} = post) do
-    create_interaction(user, post, "dislike")
+    case get_interaction(user, post, "dislike") do
+      nil -> create_interaction(user, post, "dislike")
+      existing -> {:ok, existing}
+    end
+  end
+
+  @doc """
+  Removes a like from a post.
+  """
+  def unlike(%User{} = user, %Post{} = post) do
+    case get_interaction(user, post, "like") do
+      nil -> {:error, "You haven't liked this post"}
+      interaction -> Repo.delete(interaction)
+    end
+  end
+
+  @doc """
+  Removes a dislike from a post.
+  """
+  def remove_dislike(%User{} = user, %Post{} = post) do
+    case get_interaction(user, post, "dislike") do
+      nil -> {:error, "You haven't disliked this post"}
+      interaction -> Repo.delete(interaction)
+    end
+  end
+
+  defp get_interaction(user, post, type) do
+    Repo.get_by(Interaction, user_id: user.id, post_id: post.id, type: type)
   end
 
   @doc """
@@ -244,7 +282,10 @@ defmodule RedSocial.SocialCore do
     |> Interaction.changeset(%{type: type})
     |> Ecto.Changeset.put_assoc(:user, user)
     |> Ecto.Changeset.put_assoc(:post, post)
-    |> Repo.insert()
+    |> Repo.insert(
+      on_conflict: :nothing,
+      conflict_target: [:user_id, :post_id, :type]
+    )
   end
 
   # --- Visibility Engine (The Core Logic) ---
