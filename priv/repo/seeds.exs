@@ -101,7 +101,8 @@ SocialCore.add_customer(Enum.at(company_structs, 2), Enum.at(user_structs, 7))
 SocialCore.follow(Enum.at(user_structs, 1), Enum.at(user_structs, 0))
 
 # Users also follow some companies
-SocialCore.follow(Enum.at(user_structs, 1), Enum.at(company_structs, 1))  # User 2 follows Foodies
+# User 2 follows Foodies
+SocialCore.follow(Enum.at(user_structs, 1), Enum.at(company_structs, 1))
 
 # 4. Create Posts with automatic hashtag extraction
 # User 2 posts (Visible to User 1)

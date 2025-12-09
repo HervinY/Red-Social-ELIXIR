@@ -15,5 +15,9 @@ defmodule RedSocial.Social.Relationship do
     relationship
     |> cast(attrs, [:type])
     |> validate_required([:type])
+    |> unique_constraint([:source_id, :target_id, :type],
+      name: :relationships_source_target_type_index,
+      message: "Esta relación ya existe"
+    )
   end
 end

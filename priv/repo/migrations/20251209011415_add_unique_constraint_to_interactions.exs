@@ -13,12 +13,14 @@ defmodule RedSocial.Repo.Migrations.AddUniqueConstraintToInteractions do
     """
 
     # Ahora crear el índice único
-    create unique_index(:interactions, [:user_id, :post_id, :type], 
-      name: :interactions_user_post_type_index)
+    create unique_index(:interactions, [:user_id, :post_id, :type],
+             name: :interactions_user_post_type_index
+           )
   end
 
   def down do
-    drop index(:interactions, [:user_id, :post_id, :type], 
-      name: :interactions_user_post_type_index)
+    drop index(:interactions, [:user_id, :post_id, :type],
+           name: :interactions_user_post_type_index
+         )
   end
 end

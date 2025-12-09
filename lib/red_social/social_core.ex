@@ -27,19 +27,45 @@ defmodule RedSocial.SocialCore do
   # --- Relationships ---
 
   def follow(%User{} = follower, %User{} = target) do
-    %Relationship{}
-    |> Relationship.changeset(%{type: "follow"})
-    |> Ecto.Changeset.put_assoc(:source, follower)
-    |> Ecto.Changeset.put_assoc(:target, target)
-    |> Repo.insert()
+    # Check if already following
+    existing =
+      from(r in Relationship,
+        where: r.source_id == ^follower.id and r.target_id == ^target.id and r.type == "follow"
+      )
+      |> Repo.one()
+
+    case existing do
+      nil ->
+        %Relationship{}
+        |> Relationship.changeset(%{type: "follow"})
+        |> Ecto.Changeset.put_assoc(:source, follower)
+        |> Ecto.Changeset.put_assoc(:target, target)
+        |> Repo.insert()
+
+      relationship ->
+        {:ok, relationship}
+    end
   end
 
   def block(%User{} = blocker, %User{} = target) do
-    %Relationship{}
-    |> Relationship.changeset(%{type: "block"})
-    |> Ecto.Changeset.put_assoc(:source, blocker)
-    |> Ecto.Changeset.put_assoc(:target, target)
-    |> Repo.insert()
+    # Check if already blocked
+    existing =
+      from(r in Relationship,
+        where: r.source_id == ^blocker.id and r.target_id == ^target.id and r.type == "block"
+      )
+      |> Repo.one()
+
+    case existing do
+      nil ->
+        %Relationship{}
+        |> Relationship.changeset(%{type: "block"})
+        |> Ecto.Changeset.put_assoc(:source, blocker)
+        |> Ecto.Changeset.put_assoc(:target, target)
+        |> Repo.insert()
+
+      relationship ->
+        {:ok, relationship}
+    end
   end
 
   def unfollow(%User{} = follower, %User{} = target) do
@@ -642,6 +668,18 @@ defmodule RedSocial.SocialCore do
       join: r in Relationship,
       on: r.source_id == u.id,
       where: r.target_id == ^user.id and r.type == "follow"
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets the list of users that the given user is following.
+  """
+  def get_following(%User{} = user) do
+    from(u in User,
+      join: r in Relationship,
+      on: r.target_id == u.id,
+      where: r.source_id == ^user.id and r.type == "follow"
     )
     |> Repo.all()
   end
